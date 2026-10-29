@@ -1,0 +1,38 @@
+name: slow-checkout-lab
+x-app: &app
+  build: ./app
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    - collector
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "2"
+services:
+  collector:
+    image: otel/opentelemetry-collector-contrib:0.120.0
+    command: ["--config=/etc/otelcol/config.yaml"]
+    env_file: .env
+    volumes:
+      - ./collector.yaml:/etc/otelcol/config.yaml:ro
+    restart: unless-stopped
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "2"
+  checkout:
+    <<: *app
+    environment:
+      SERVICE_NAME: checkout
+      OTEL_ENDPOINT: http://collector:4318
+    ports:
+      - "127.0.0.1:8080:8080"
+  inventory:
+    <<: *app
+    environment:
+      SERVICE_NAME: inventory
+      OTEL_ENDPOINT: http://collector:4318

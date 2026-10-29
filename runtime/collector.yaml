@@ -1,0 +1,54 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 64
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+exporters:
+  otlphttp/grafana:
+    endpoint: ${env:GRAFANA_OTLP_ENDPOINT}
+    headers:
+      Authorization: ${env:GRAFANA_OTLP_AUTH}
+  awsxray:
+    region: ${env:AWS_REGION}
+    aws_log_groups: ["/slow-checkout-lab/app"]
+  awscloudwatchlogs:
+    region: ${env:AWS_REGION}
+    log_group_name: /slow-checkout-lab/app
+    log_stream_name: application
+    raw_log: true
+  awsemf:
+    region: ${env:AWS_REGION}
+    namespace: SlowCheckoutLab
+    log_group_name: /slow-checkout-lab/metrics
+    log_stream_name: metrics
+    dimension_rollup_option: NoDimensionRollup
+    metric_declarations:
+      - dimensions: [[service, scenario]]
+        metric_name_selectors:
+          - '^lab_requests$'
+          - '^lab_errors$'
+          - '^lab_request_duration$'
+      - dimensions: [[service]]
+        metric_name_selectors: ['^lab_process_cpu_percent$']
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [awsxray, otlphttp/grafana]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [awsemf, otlphttp/grafana]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [awscloudwatchlogs, otlphttp/grafana]

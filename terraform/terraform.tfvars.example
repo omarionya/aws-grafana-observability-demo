@@ -1,0 +1,4 @@
+aws_region          = "us-east-1"
+instance_type       = "t3.small"
+grafana_metrics_uid = "REPLACE_WITH_METRICS_DATASOURCE_UID"
+enable_codeguru     = true

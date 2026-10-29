@@ -1,0 +1,11 @@
+secrets.env
+runtime/.env
+terraform/.terraform/
+terraform/*.tfstate*
+terraform/*.tfvars
+terraform/*.tfplan
+terraform/lab.zip
+VALIDATION.md
+.terraform.lock.hcl
+__pycache__/
+*.pyc

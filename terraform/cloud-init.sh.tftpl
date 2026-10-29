@@ -1,0 +1,39 @@
+#!/bin/bash
+set -euo pipefail
+# Bundle revision: ${bundle_hash}
+dnf install -y docker unzip
+systemctl enable --now docker
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl --fail --location --retry 5 \
+  https://github.com/docker/compose/releases/download/v2.32.4/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+install -d -m 700 /opt/slow-checkout-lab
+aws s3 cp 's3://${bucket}/lab.zip' /tmp/lab.zip --region '${region}'
+unzip -o /tmp/lab.zip -d /opt/slow-checkout-lab
+umask 077
+aws ssm get-parameter --name '${parameter}' --with-decryption \
+  --query Parameter.Value --output text --region '${region}' > /opt/slow-checkout-lab/.env
+cat >> /opt/slow-checkout-lab/.env <<'ENV'
+AWS_REGION=${region}
+ENABLE_CODEGURU=${enable_codeguru}
+CODEGURU_GROUP=slow-checkout-lab
+ENV
+chmod 600 /opt/slow-checkout-lab/.env
+cat > /etc/systemd/system/slow-checkout-lab.service <<'UNIT'
+[Unit]
+Description=Slow Checkout observability lab
+After=docker.service network-online.target
+Requires=docker.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/slow-checkout-lab
+ExecStart=/usr/bin/docker compose up -d --build
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=900
+[Install]
+WantedBy=multi-user.target
+UNIT
+systemctl daemon-reload
+systemctl enable --now slow-checkout-lab
